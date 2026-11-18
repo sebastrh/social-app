@@ -1,0 +1,295 @@
+<nav class="navbar navbar-dark bg-dark">
+  <div class="container">
+    <span class="navbar-brand mb-0 h1">Desem Social</span>
+
+    <div class="d-flex align-items-center gap-3">
+      @if (sesionActual(); as sesion) {
+        <span class="text-light small">{{ sesion.nombreUsuario }}</span>
+      }
+      <button type="button" class="btn btn-outline-light btn-sm" (click)="cerrarSesion()">
+        Cerrar sesión
+      </button>
+    </div>
+  </div>
+</nav>
+
+<main class="container py-4">
+  <div class="row justify-content-center">
+    <div class="col-12 col-md-8">
+      @if (aviso(); as avisoActivo) {
+        <div
+          class="alert alert-dismissible fade show"
+          [class.alert-success]="avisoActivo.tipo === 'exito'"
+          [class.alert-danger]="avisoActivo.tipo === 'error'"
+          [class.alert-info]="avisoActivo.tipo === 'info'"
+          role="alert"
+        >
+          {{ avisoActivo.texto }}
+          <button
+            type="button"
+            class="btn-close"
+            aria-label="Cerrar"
+            (click)="cerrarAviso()"
+          ></button>
+        </div>
+      }
+
+      <div class="card mb-4">
+        <div class="card-header fw-semibold">Nueva publicación</div>
+        <div class="card-body">
+          <form [formGroup]="formularioCrear" (ngSubmit)="crearPublicacion()" novalidate>
+            <div class="mb-3">
+              <label for="titulo" class="form-label">Título</label>
+              <input
+                id="titulo"
+                type="text"
+                class="form-control"
+                formControlName="titulo"
+                placeholder="Escribe un título"
+                [class.is-invalid]="campoCrearInvalido('titulo')"
+              />
+              @if (campoCrearInvalido('titulo')) {
+                <div class="invalid-feedback">
+                  El título debe tener entre 3 y 120 caracteres.
+                </div>
+              }
+            </div>
+
+            <div class="mb-3">
+              <label for="contenido" class="form-label">Mensaje</label>
+              <textarea
+                id="contenido"
+                rows="3"
+                class="form-control"
+                formControlName="contenido"
+                placeholder="¿Qué quieres compartir?"
+                [class.is-invalid]="campoCrearInvalido('contenido')"
+              ></textarea>
+              @if (campoCrearInvalido('contenido')) {
+                <div class="invalid-feedback">
+                  El mensaje debe tener entre 5 y 500 caracteres.
+                </div>
+              }
+            </div>
+
+            <div class="text-end">
+              <button type="submit" class="btn btn-primary" [disabled]="creando()">
+                @if (creando()) {
+                  Publicando...
+                } @else {
+                  Publicar
+                }
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+
+      <div class="input-group mb-3">
+        <input
+          type="search"
+          class="form-control"
+          placeholder="Buscar publicaciones..."
+          [value]="busqueda()"
+          (input)="alBuscar($any($event.target).value)"
+        />
+        <button
+          type="button"
+          class="btn btn-outline-secondary"
+          (click)="cargarPublicaciones()"
+          [disabled]="cargandoMuro()"
+        >
+          Recargar
+        </button>
+      </div>
+
+      @if (cargandoMuro()) {
+        <div class="text-center py-4">
+          <div class="spinner-border text-secondary" role="status">
+            <span class="visually-hidden">Cargando...</span>
+          </div>
+          <p class="text-muted mt-2 mb-0">Cargando publicaciones...</p>
+        </div>
+      } @else if (errorMuro()) {
+        <div class="alert alert-danger d-flex justify-content-between align-items-center">
+          <span>{{ errorMuro() }}</span>
+          <button type="button" class="btn btn-sm btn-danger" (click)="cargarPublicaciones()">
+            Reintentar
+          </button>
+        </div>
+      } @else if (publicacionesVisibles().length === 0) {
+        <div class="alert alert-light border text-center text-muted">
+          No hay publicaciones para mostrar.
+        </div>
+      } @else {
+        @for (pub of publicacionesVisibles(); track pub.id) {
+          <div class="card mb-3">
+            <div class="card-body">
+              <h5 class="card-title mb-2">{{ pub.title }}</h5>
+              <p class="card-text texto-publicacion">{{ pub.body }}</p>
+
+              <div class="d-flex justify-content-end gap-2 pt-2 border-top">
+                <button
+                  type="button"
+                  class="btn btn-outline-primary btn-sm"
+                  (click)="abrirModalEditar(pub)"
+                >
+                  Modificar
+                </button>
+                <button
+                  type="button"
+                  class="btn btn-outline-danger btn-sm"
+                  (click)="abrirModalEliminar(pub)"
+                >
+                  Eliminar
+                </button>
+              </div>
+            </div>
+          </div>
+        }
+
+        @if (hayMasPublicaciones()) {
+          <div class="text-center my-3">
+            <button type="button" class="btn btn-outline-secondary" (click)="cargarMas()">
+              Cargar más publicaciones
+            </button>
+          </div>
+        }
+      }
+    </div>
+  </div>
+</main>
+
+@if (publicacionEnEdicion(); as pubEditar) {
+  <div class="modal-backdrop fade show"></div>
+  <div
+    class="modal fade show d-block"
+    tabindex="-1"
+    role="dialog"
+    aria-modal="true"
+    aria-labelledby="tituloModalEditar"
+  >
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title" id="tituloModalEditar">Modificar publicación</h5>
+          <button
+            type="button"
+            class="btn-close"
+            aria-label="Cerrar"
+            [disabled]="actualizando()"
+            (click)="cerrarModalEditar()"
+          ></button>
+        </div>
+
+        <form [formGroup]="formularioEditar" (ngSubmit)="guardarCambios()" novalidate>
+          <div class="modal-body">
+            <div class="mb-3">
+              <label for="editarTitulo" class="form-label">Título</label>
+              <input
+                id="editarTitulo"
+                type="text"
+                class="form-control"
+                formControlName="titulo"
+                [class.is-invalid]="campoEditarInvalido('titulo')"
+              />
+              @if (campoEditarInvalido('titulo')) {
+                <div class="invalid-feedback">
+                  El título debe tener entre 3 y 120 caracteres.
+                </div>
+              }
+            </div>
+
+            <div class="mb-2">
+              <label for="editarContenido" class="form-label">Mensaje</label>
+              <textarea
+                id="editarContenido"
+                rows="4"
+                class="form-control"
+                formControlName="contenido"
+                [class.is-invalid]="campoEditarInvalido('contenido')"
+              ></textarea>
+              @if (campoEditarInvalido('contenido')) {
+                <div class="invalid-feedback">
+                  El mensaje debe tener entre 5 y 500 caracteres.
+                </div>
+              }
+            </div>
+          </div>
+
+          <div class="modal-footer">
+            <button
+              type="button"
+              class="btn btn-secondary"
+              [disabled]="actualizando()"
+              (click)="cerrarModalEditar()"
+            >
+              Cancelar
+            </button>
+            <button type="submit" class="btn btn-primary" [disabled]="actualizando()">
+              @if (actualizando()) {
+                Guardando...
+              } @else {
+                Guardar cambios
+              }
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+}
+
+@if (publicacionAEliminar(); as pubEliminar) {
+  <div class="modal-backdrop fade show"></div>
+  <div
+    class="modal fade show d-block"
+    tabindex="-1"
+    role="dialog"
+    aria-modal="true"
+    aria-labelledby="tituloModalEliminar"
+  >
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title" id="tituloModalEliminar">Eliminar publicación</h5>
+          <button
+            type="button"
+            class="btn-close"
+            aria-label="Cerrar"
+            [disabled]="eliminando()"
+            (click)="cerrarModalEliminar()"
+          ></button>
+        </div>
+
+        <div class="modal-body">
+          <p>¿Seguro que deseas eliminar esta publicación?</p>
+          <p class="fw-semibold mb-0">{{ pubEliminar.title }}</p>
+        </div>
+
+        <div class="modal-footer">
+          <button
+            type="button"
+            class="btn btn-secondary"
+            [disabled]="eliminando()"
+            (click)="cerrarModalEliminar()"
+          >
+            Cancelar
+          </button>
+          <button
+            type="button"
+            class="btn btn-danger"
+            [disabled]="eliminando()"
+            (click)="confirmarEliminacion()"
+          >
+            @if (eliminando()) {
+              Eliminando...
+            } @else {
+              Eliminar
+            }
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+}

@@ -1,0 +1,9 @@
+body {
+  font-family: system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  background-color: #f4f6f9;
+  color: #212529;
+}
+
+.min-w-0 {
+  min-width: 0;
+}
